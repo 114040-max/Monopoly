@@ -1,0 +1,10 @@
+{
+  "name": "春醒山行",
+  "short_name": "春醒山行",
+  "description": "踏霧而行，山谷霧濃，登高則明。",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1a1c21",
+  "theme_color": "#1a1c21",
+  "lang": "zh-TW",
+  "icons": [

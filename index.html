@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>春醒山行</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #1f2733;
+    overflow: hidden;
+}
+canvas {
+    display: block;
+    margin: auto;
+}
+#ui {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    opacity: 0.9;
+}
+</style>
+</head>
+<body>
+
+<div id="ui">← → 移動 ｜ Space 跳躍（可二段跳）</div>
+<canvas id="game"></canvas>
+
+<script>
+/* ================= 基本設定 ================= */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = 800;
+canvas.height = 600;
+
+const WORLD_HEIGHT = 3000;
+let cameraY = 0;
+let time = 0;
+
+/* ================= 玩家 ================= */
+const player = {
+    x: 390,
+    y: WORLD_HEIGHT - 100,
+    w: 20,
+    h: 30,
+    vx: 0,
+    vy: 0,
+    grounded: false,
+    jumpCount: 0,
+    maxJumps: 2
+};
+
+/* ================= 平台 ================= */
+const platforms = [];
+platforms.push({x:0, y:WORLD_HEIGHT-40, w:800, h:40});
+
+for (let i = 1; i < 25; i++) {
+    platforms.push({
+        x: Math.random() * 600 + 50,
+        y: WORLD_HEIGHT - 40 - i * 110,
+        w: 120 + Math.random() * 80,
+        h: 18
+    });
+}
+
+/* ================= 裝飾 ================= */
+const decorations = [];
+platforms.forEach(p => {
+    if (Math.random() < 0.4) {
+        decorations.push({
+            x: p.x + Math.random() * p.w,
+            y: p.y - 25,
+            type: Math.random() < 0.5 ? "tree" : "rock"
+        });
+    }
+});
+
+/* ================= 粒子 ================= */
+const particles = [];
+for (let i = 0; i < 80; i++) {
+    particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 1,
+        speed: Math.random() * 0.5 + 0.2
+    });
+}
+
+/* ================= 輸入 ================= */
+const keys = {};
+let jumpLock = false;
+
+window.addEventListener("keydown", e => {
+    keys[e.code] = true;
+
+    if (e.code === "Space" && !jumpLock) {
+        if (player.grounded || player.jumpCount < player.maxJumps - 1) {
+            player.vy = player.grounded ? -12 : -10;
+            player.grounded = false;
+            player.jumpCount++;
+            jumpLock = true;
+        }
+    }
+});
+
+window.addEventListener("keyup", e => {
+    keys[e.code] = false;
+    if (e.code === "Space") jumpLock = false;
+});
+
+/* ================= 背景 ================= */
+function drawBackground() {
+    const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    sky.addColorStop(0, "#5d6b7a");
+    sky.addColorStop(1, "#1f2733");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 遠山
+    ctx.save();
+    ctx.translate(0, -cameraY * 0.15);
+    ctx.fillStyle = "#3a4454";
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height);
+    ctx.lineTo(200, canvas.height - 200);
+    ctx.lineTo(420, canvas.height - 140);
+    ctx.lineTo(700, canvas.height - 240);
+    ctx.lineTo(900, canvas.height);
+    ctx.fill();
+    ctx.restore();
+
+    // 中山
+    ctx.save();
+    ctx.translate(0, -cameraY * 0.3);
+    ctx.fillStyle = "#2c3440";
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height);
+    ctx.lineTo(150, canvas.height - 120);
+    ctx.lineTo(350, canvas.height - 200);
+    ctx.lineTo(600, canvas.height - 120);
+    ctx.lineTo(900, canvas.height);
+    ctx.fill();
+    ctx.restore();
+
+    // 霧
+    ctx.fillStyle = "rgba(220,230,235,0.08)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+/* ================= 更新 ================= */
+function update() {
+    time += 0.02;
+
+    if (keys["ArrowLeft"]) player.vx -= 0.5;
+    if (keys["ArrowRight"]) player.vx += 0.5;
+
+    player.vx *= 0.85;
+    player.vy += 0.6;
+
+    player.x += player.vx;
+    player.y += player.vy;
+
+    player.grounded = false;
+    platforms.forEach(p => {
+        if (
+            player.x + player.w > p.x &&
+            player.x < p.x + p.w &&
+            player.y + player.h > p.y &&
+            player.y + player.h < p.y + p.h + 12 &&
+            player.vy >= 0
+        ) {
+            player.y = p.y - player.h;
+            player.vy = 0;
+            player.grounded = true;
+            player.jumpCount = 0;
+        }
+    });
+
+    cameraY = player.y - canvas.height * 0.6;
+    cameraY = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, cameraY));
+}
+
+/* ================= 繪製 ================= */
+function draw() {
+    drawBackground();
+
+    ctx.save();
+    ctx.translate(0, -cameraY);
+
+    // 裝飾
+    decorations.forEach(d => {
+        if (d.type === "tree") {
+            ctx.fillStyle = "#2e3d2f";
+            ctx.fillRect(d.x - 3, d.y, 6, 20);
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, 12, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.fillStyle = "#555";
+            ctx.beginPath();
+            ctx.arc(d.x, d.y + 10, 8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+
+    // 平台
+    ctx.fillStyle = "#666";
+    platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+
+    // 玩家
+    ctx.fillStyle = "#e05a5a";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+
+    ctx.restore();
+
+    // 粒子
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    particles.forEach(pt => {
+        pt.y += pt.speed;
+        pt.x += Math.sin(time + pt.y) * 0.3;
+        if (pt.y > canvas.height) pt.y = 0;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+/* ================= 主迴圈 ================= */
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+loop();
+</script>
+
+</body>
+</html>
